@@ -88,7 +88,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
             ekf_.x_ = VectorXd(4);
             ekf_.x_ << px, py, px, py;
 	    }
-        ekf_.P_ = MatrixXd(4, 4);
+        ekf_.P_ = MatrixXd(4, 4); // Initialize P matrix
         ekf_.P_ <<  1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 0, 10, 0,

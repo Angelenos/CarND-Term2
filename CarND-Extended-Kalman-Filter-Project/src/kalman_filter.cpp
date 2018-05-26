@@ -65,16 +65,30 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
     float vy = x_(3);
     float rho = sqrt((px*px) + (py*py));
     float phi = atan2(py, px);
-    if(phi < - PI) {
-        phi += 2 * PI;
-    } else if(phi > PI) {
-        phi -= 2 * PI;
+    float offset = 0.0;
+
+    // Check if there is any py of 0 value and set it to 0.0001 to avoid change of signs
+    if(py < 0.0001 && py > -0.0001) {
+        py += 0.0001;
+    }
+
+    // Add/Substract 2*PI from the sensor reading to make it between range (-Pi, Pi]
+    while(z(1) + offset <= - PI) {
+        offset += 2 * PI;
+    }
+    while(z(1) + offset > PI) {
+        offset -= 2 * PI;
+    }
+
+    // Check if re-ranging will cause additional bias from state variables. If so discard the re-ranging
+    if(abs(z(1) + offset - phi) > abs(z(1) - phi)) {
+        offset = 0;
     }
     float rhod = ((px*vx) + (py*vy)) / sqrt((px*px) + (py*py));
     VectorXd z_pred = VectorXd(3);
-    z_pred << rho, phi, rhod;
+    z_pred << rho, phi - offset, rhod;
     
-    // VectorXd z_pred = H_ * x_;
+    // Calculate S and K Matrices
     VectorXd y = z - z_pred;
     MatrixXd Ht = H_.transpose();
     MatrixXd S = (H_ * P_ * Ht) + R_;
