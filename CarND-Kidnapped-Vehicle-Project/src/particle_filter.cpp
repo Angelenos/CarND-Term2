@@ -19,7 +19,7 @@
 
 using namespace std;
 
-void ParticleFilter(int num) {
+ParticleFilter::ParticleFilter(int num) {
 	// Constructor for Particle Filter when number of particles specified
 	num_particles = num;
 	particles.resize(num_particles);
@@ -39,7 +39,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	default_random_engine gen;
 	normal_distribution<double> dist_x(x, std[0]);
 	normal_distribution<double> dist_y(y, std[1]);
-	normal_distribution<double> dist_theta(theta, std[2];
+	normal_distribution<double> dist_theta(theta, std[2]);
 
 	for (auto part_it = particles.begin(); part_it != particles.end(); part_it++) {
 		part_it->x = dist_x(gen);
@@ -65,7 +65,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 		normal_distribution<double> pos_x(x_f, std_pos[0]);
 		normal_distribution<double> pos_y(y_f, std_pos[1]);
-		normal_distribution<double> pos_theta(theta_f, std_pos[2];
+		normal_distribution<double> pos_theta(theta_f, std_pos[2]);
 
 		part_it->x = pos_x(gen);
 		part_it->y = pos_y(gen);
@@ -84,7 +84,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 		double dist_min = dist(predicted[0].x, predicted[0].y, x_p, y_p);
 		int ind_min = 0;
 		for (auto pred_it = predicted.begin(); pred_it != predicted.end(); pred_it++) {
-			double distance = dist(pred_it->x, pred_it->y, x_p, y_p)
+			double distance = dist(pred_it->x, pred_it->y, x_p, y_p);
 			if (distance < dist_min) {
 				dist_min = distance;
 				ind_min = pred_it - predicted.begin();
@@ -119,11 +119,11 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		// Create vector of predicted landmarkobs containing all landmarkobs within the range of sensor
 		vector<LandmarkObs> predicted;
 		for (auto map_it = map_landmarks.landmark_list.begin(); map_it != map_landmarks.landmark_list.end(); map_it++) {
-			if (dist(x_p, y_p, map_it->x, map_it->y) < sensor_range) {
+			if (dist(x_p, y_p, map_it->x_f, map_it->y_f) < sensor_range) {
 				LandmarkObs obs_inrange;
-				obs_inrange.x = map_it->x;
-				obs_inrange.y = map_it->y;
-				obs_inrange.id = map_it->id;
+				obs_inrange.x = map_it->x_f;
+				obs_inrange.y = map_it->y_f;
+				obs_inrange.id = map_it->id_i;
 				predicted.push_back(obs_inrange);
 			}
 		}
@@ -165,7 +165,21 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+	default_random_engine gen;
+	vector<double> weights;
+	for (auto part_it = particles.begin(); part_it != particles.end(); part_it++) {
+		weights.push_back(part_it->weight);
+	}
+	discrete_distribution<int> resample_wheel(weights.begin(), weights.end());
+	vector<Particle> resample(particles);
 
+	for (int i = 0; i < num_particles; i++) {
+		int index = resample_wheel(gen);
+		resample[i] = particles[index];
+		resample[i].id = i;
+	}
+
+	particles = resample;
 }
 
 Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 

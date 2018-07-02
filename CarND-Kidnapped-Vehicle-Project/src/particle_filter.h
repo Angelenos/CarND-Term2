@@ -48,7 +48,7 @@ public:
 
 	// Constructor
 	// @param num Number of particles
-	ParticleFilter(int num) {}
+	ParticleFilter(int num);
 
 	// Destructor
 	~ParticleFilter() {}
