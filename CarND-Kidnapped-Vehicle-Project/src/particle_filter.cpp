@@ -48,7 +48,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 		part_it->weight = 1.0;
 	}
 
-	is_initialized = 1;
+	is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -59,7 +59,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	default_random_engine gen;
 
 	for (auto part_it = particles.begin(); part_it != particles.end(); part_it++) {
-		double x_f = part_it->x + (velocity / yaw_rate * (sin(part_it->theta + (yaw_rate * delta_t) - sin(part_it->theta))));
+		double x_f = part_it->x + (velocity / yaw_rate * (sin(part_it->theta + (yaw_rate * delta_t)) - sin(part_it->theta)));
 		double y_f = part_it->y + (velocity / yaw_rate * (cos(part_it->theta) - cos(part_it->theta + (yaw_rate * delta_t))));
 		double theta_f = part_it->theta + (delta_t * yaw_rate);
 
@@ -119,7 +119,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		// Create vector of predicted landmarkobs containing all landmarkobs within the range of sensor
 		vector<LandmarkObs> predicted;
 		for (auto map_it = map_landmarks.landmark_list.begin(); map_it != map_landmarks.landmark_list.end(); map_it++) {
-			if (dist(x_p, y_p, map_it->x_f, map_it->y_f) < sensor_range) {
+			if (dist(x_p, y_p, map_it->x_f, map_it->y_f) <= sensor_range) {
 				LandmarkObs obs_inrange;
 				obs_inrange.x = map_it->x_f;
 				obs_inrange.y = map_it->y_f;
@@ -128,15 +128,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			}
 		}
 		// Convert the observation to map coordinates
-		vector<LandmarkObs> observations_map;
+		vector<LandmarkObs> observations_map(observations);
 		for (auto obs_it = observations.begin(); obs_it != observations.end(); obs_it++) {
-			LandmarkObs obs_map;
 			double x_c = obs_it->x;
 			double y_c = obs_it->y;
-			obs_map.x = x_p + (cos(theta) * x_c) - (sin(theta) * y_c);
-			obs_map.y = y_p + (sin(theta) * x_c) + (cos(theta) * y_c);
-			obs_map.id = obs_it->id;
-			observations_map.push_back(obs_map);
+			auto obs_map_it = observations_map.begin() + (obs_it - observations.begin());
+			obs_map_it->x = x_p + (cos(theta) * x_c) - (sin(theta) * y_c);
+			obs_map_it->y = y_p + (sin(theta) * x_c) + (cos(theta) * y_c);
+			obs_map_it->id = obs_it->id;
 		}
 		// Perform data association
 		if (!observations.empty()) {
@@ -148,8 +147,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 				double y_c = obs_it->y;
 				double mu_x = predicted[obs_it->id].x;
 				double mu_y = predicted[obs_it->id].y;
-				part_it->weight *= exp(-(((x_c - mu_x) * (x_c - mu_x) / (2 * sigma_x * sigma_x)) + ((y_c - mu_y) * (y_c - mu_y) / (2 * sigma_y * sigma_y)))) ;
-				part_it->weight /= 2 * M_PI * sigma_x * sigma_y;
+				double exponent = ((x_c - mu_x) * (x_c - mu_x) / (2 * sigma_x * sigma_x)) + ((y_c - mu_y) * (y_c - mu_y) / (2 * sigma_y * sigma_y));
+				part_it->weight *= exp(-exponent) / 2 * M_PI * sigma_x * sigma_y;
 			}
 		}
 		// Update the total weights for all particles
