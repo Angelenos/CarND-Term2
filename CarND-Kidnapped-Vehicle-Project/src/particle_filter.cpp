@@ -21,7 +21,6 @@ using namespace std;
 
 ParticleFilter::ParticleFilter(int num) {
 	// Constructor for Particle Filter when number of particles specified
-	num_particles = num;
 	particles.resize(num_particles);
 	// Assign corresponding id to all particles
 	for (int i = 0; i < num_particles; i++) {
@@ -36,7 +35,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-	default_random_engine gen;
+	// default_random_engine gen;
 	normal_distribution<double> dist_x(x, std[0]);
 	normal_distribution<double> dist_y(y, std[1]);
 	normal_distribution<double> dist_theta(theta, std[2]);
@@ -56,8 +55,11 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
-	default_random_engine gen;
-
+	// default_random_engine gen;
+	// Check if yaw_rate ~ 0. Assign value of 0.0001 to avoid divide-by-zero
+	if(abs(yaw_rate) < 0.0001) {
+		yaw_rate = yaw_rate < 0? -0.0001:0.0001;
+	}
 	for (auto part_it = particles.begin(); part_it != particles.end(); part_it++) {
 		double x_f = part_it->x + (velocity / yaw_rate * (sin(part_it->theta + (yaw_rate * delta_t)) - sin(part_it->theta)));
 		double y_f = part_it->y + (velocity / yaw_rate * (cos(part_it->theta) - cos(part_it->theta + (yaw_rate * delta_t))));
@@ -164,7 +166,7 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
-	default_random_engine gen;
+	// default_random_engine gen;
 	vector<double> weights;
 	for (auto part_it = particles.begin(); part_it != particles.end(); part_it++) {
 		weights.push_back(part_it->weight);
@@ -181,7 +183,7 @@ void ParticleFilter::resample() {
 	particles = resample;
 }
 
-Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
+void ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
                                      const std::vector<double>& sense_x, const std::vector<double>& sense_y)
 {
     //particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to

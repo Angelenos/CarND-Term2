@@ -10,6 +10,7 @@
 
 #include <sstream>
 #include <fstream>
+#include <random>
 #include <math.h>
 #include <vector>
 #include "map.h"

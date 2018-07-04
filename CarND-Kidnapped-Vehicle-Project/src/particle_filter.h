@@ -30,7 +30,8 @@ class ParticleFilter {
 	// Number of particles to draw
 	int num_particles; 
 	
-	
+	// Random engine included in the class private item to avoid multiple calls in class functions
+	std::default_random_engine gen;
 	
 	// Flag, if filter is initialized
 	bool is_initialized;
@@ -104,7 +105,7 @@ public:
 	 * Set a particles list of associations, along with the associations calculated world x,y coordinates
 	 * This can be a very useful debugging tool to make sure transformations are correct and assocations correctly connected
 	 */
-	Particle SetAssociations(Particle& particle, const std::vector<int>& associations,
+	void SetAssociations(Particle& particle, const std::vector<int>& associations,
 		                     const std::vector<double>& sense_x, const std::vector<double>& sense_y);
 
 	
