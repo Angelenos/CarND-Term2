@@ -20,7 +20,7 @@ double dt = 0.05;
 //
 // This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
-double ref_v = 100;
+double ref_v = 100; // Target speed is 100 mph
 
 size_t x_start = 0;
 size_t y_start = x_start + N;
@@ -31,9 +31,10 @@ size_t epsi_start = cte_start + N;
 size_t delta_start = epsi_start + N;
 size_t a_start = delta_start + N - 1;
 
-AD<double> Kref = 100.0;
-AD<double> Kact = 1.0;
-AD<double> Kgap = 400.0;
+AD<double> Kref = 100.0; // Weight for reference state cost
+AD<double> Kact = 1.0; // Weight for actuator cost
+AD<double> Kgap = 4000000.0; // Weight for actuator change cost
+AD<double> Kacc = 0.0; // Weight for acceleration/brake actions.
 
 class FG_eval {
 public:
@@ -59,13 +60,15 @@ public:
         // Minimize the use of actuators.
         for (int t = 0; t < N - 1; t++) {
             fg[0] += Kact * CppAD::pow(vars[delta_start + t], 2);
-            // fg[0] += Kact * CppAD::pow(vars[a_start + t], 2);
+            // Here brake/acceleration action has 0 cost so controller will consider speed up/down at corners 
+            fg[0] += Kacc * CppAD::pow(vars[a_start + t], 2); 
         }
 
         // Minimize the value gap between sequential actuations.
         for (int t = 0; t < N - 2; t++) {
-            fg[0] += Kgap * 10000 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-            // fg[0] += Kgap * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+            fg[0] += Kgap * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+            // Here brake/acceleration action change has 0 cost so controller will consider speed up/down at corners 
+            fg[0] += Kacc * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2); 
         }
 
         fg[1 + x_start] = vars[x_start];
@@ -100,8 +103,8 @@ public:
             AD<double> f0 = coeffs[0] + (coeffs[1] * x0) + (coeffs[2] * x0 * x0) + (coeffs[3] * x0 * x0 * x0);
             AD<double> psides0 = CppAD::atan(coeffs[1] + (2*coeffs[2]*x0) + (3*coeffs[3]*x0*x0));
             AD<double> dpsi = psi0 - psides0;
-            while(dpsi > 2 * M_PI) {dpsi -= (AD<double>)(2 * M_PI);}
-            while(dpsi < -2 * M_PI) {dpsi += (AD<double>)(2 * M_PI);}
+            while(dpsi > 2 * M_PI) {dpsi -= (AD<double>)(2 * M_PI);} // Convert dpsi into [-2pi, 2pi]
+            while(dpsi < -2 * M_PI) {dpsi += (AD<double>)(2 * M_PI);} // Convert dpsi into [-2pi, 2pi]
             // Here's `x` to get you started.
             // The idea here is to constraint this value to be 0.
             //
@@ -171,8 +174,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     // degrees (values in radians).
     // NOTE: Feel free to change this to something else.
     for (int i = delta_start; i < a_start; i++) {
-        vars_lowerbound[i] = -0.436332;
-        vars_upperbound[i] = 0.436332;
+        vars_lowerbound[i] = -deg2rad(25.0);
+        vars_upperbound[i] = deg2rad(25.0);
     }
 
     // Acceleration/decceleration upper and lower limits.
@@ -213,7 +216,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     // options for IPOPT solver
     std::string options;
     // Uncomment this if you'd like more print information
-    options += "Integer print_level    1\n";
+    options += "Integer print_level    0\n";
     // NOTE: Setting sparse to true allows the solver to take advantage
     // of sparse routines, this makes the computation MUCH FASTER. If you
     // can uncomment 1 of these and see if it makes a difference or not but

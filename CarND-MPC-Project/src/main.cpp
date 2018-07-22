@@ -13,11 +13,6 @@
 using json = nlohmann::json;
 using namespace std;
 
-// For converting back and forth between radians and degrees.
-constexpr double pi() { return M_PI; }
-double deg2rad(double x) { return x * pi() / 180; }
-double rad2deg(double x) { return x * 180 / pi(); }
-
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -107,33 +102,28 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          Eigen::VectorXd xvals(ptsx.size());
-          Eigen::VectorXd yvals(ptsy.size());
           Eigen::VectorXd xvals_loc(ptsx.size());
           Eigen::VectorXd yvals_loc(ptsy.size());
           for(int i = 0; i < ptsx.size(); i++) {
-            xvals[i] = ptsx[i];
-            yvals[i] = ptsy[i];
-            double shift_x = ptsx[i] - px;
-            double shift_y = ptsy[i] - py;
-            xvals_loc[i] = (shift_x*cos(-psi)) - (shift_y*sin(-psi));
-            yvals_loc[i] = (shift_x*sin(-psi)) + (shift_y*cos(-psi));
+            // Here the reference points are transferred into the local (vehicle) coordinate
+            vector<double> vals_loc = coord_trans({px, py, psi_unity}, {ptsx[i], ptsy[i]});
+            xvals_loc[i] = vals_loc[0];
+            yvals_loc[i] = vals_loc[1];
           }
-          Eigen::VectorXd coeffs = polyfit(xvals, yvals, 3);
           Eigen::VectorXd coeffs_loc = polyfit(xvals_loc, yvals_loc, 3);
-          Eigen::VectorXd coeffs_d(3);
-          coeffs_d << coeffs[1], 2*coeffs[2], 3*coeffs[3];
+          Eigen::VectorXd coeffs_d(3); // Coefficients of the derivative from the poly-fitted curves
+          coeffs_d << coeffs_loc[1], 2*coeffs_loc[2], 3*coeffs_loc[3];
 
-          double cte = polyeval(coeffs_loc, 0) - 0;
-          double epsi = psi - atan(polyeval(coeffs_d, px));
-          while(epsi > 2 * M_PI) {epsi -= 2*M_PI;}
-          while(epsi < -2 * M_PI) {epsi += 2*M_PI;}
+          double cte = polyeval(coeffs_loc, 0) - 0; // CTE here is calculated in local coordinate
+          double epsi = -atan(polyeval(coeffs_d, px)); // epsi here is calculated in local coordinate
+          while(epsi > 2 * M_PI) {epsi -= 2*M_PI;}  // Convert epsi into [-2pi, 2pi]
+          while(epsi < -2 * M_PI) {epsi += 2*M_PI;}  // Convert epsi into [-2pi, 2pi]
 
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          state << 0, 0, 0, v, cte, epsi; // Both px, py and psi are 0 due to local coordinates adopted here
 
           vector<double> solution = mpc.Solve(state, coeffs_loc);
-          double steer_value = solution[0] / 0.436332;
+          double steer_value = solution[0] / mpc.deg2rad(25.0);
           double throttle_value = solution[1] / 15;
 
           json msgJson;
@@ -143,7 +133,7 @@ int main() {
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory
-          int mpc_val_size = (solution.size() - 2) / 2;
+          int mpc_val_size = (solution.size() - 2) / 2; // Here only 0.5*N points are displayed for predicted trajectory
           vector<double> mpc_x_vals(mpc_val_size);
           vector<double> mpc_y_vals(mpc_val_size);
           for(int i = 0; i < mpc_val_size; i++) {
@@ -161,6 +151,7 @@ int main() {
           vector<double> next_x_vals = ptsx;
           vector<double> next_y_vals = ptsy;
           for(int i = 0; i < ptsx.size(); i++) {
+            // Reference points of global coordinates here are transferred into local coordinates as well
             vector<double> next_vals = coord_trans({px, py, psi_unity}, {ptsx[i], ptsy[i]});
             next_x_vals[i] = next_vals[0];
             next_y_vals[i] = next_vals[1];
